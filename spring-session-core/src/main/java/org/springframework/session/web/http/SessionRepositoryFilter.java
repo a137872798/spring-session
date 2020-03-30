@@ -75,6 +75,7 @@ import org.springframework.session.SessionRepository;
  * @author Rob Winch
  * @author Vedran Pavic
  * @author Josh Cummings
+ * spring-session ??
  */
 @Order(SessionRepositoryFilter.DEFAULT_ORDER)
 public class SessionRepositoryFilter<S extends Session> extends OncePerRequestFilter {
@@ -128,19 +129,30 @@ public class SessionRepositoryFilter<S extends Session> extends OncePerRequestFi
 		this.httpSessionIdResolver = httpSessionIdResolver;
 	}
 
+	/**
+	 * @param request
+	 * @param response
+	 * @param filterChain
+	 * @throws ServletException
+	 * @throws IOException
+	 */
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
 			throws ServletException, IOException {
+		// ??????????
 		request.setAttribute(SESSION_REPOSITORY_ATTR, this.sessionRepository);
 
+		// ??2????? ??? session?????
 		SessionRepositoryRequestWrapper wrappedRequest = new SessionRepositoryRequestWrapper(request, response);
 		SessionRepositoryResponseWrapper wrappedResponse = new SessionRepositoryResponseWrapper(wrappedRequest,
 				response);
 
 		try {
+			// ?????
 			filterChain.doFilter(wrappedRequest, wrappedResponse);
 		}
 		finally {
+			// ????? ?session ???
 			wrappedRequest.commitSession();
 		}
 	}
@@ -174,6 +186,9 @@ public class SessionRepositoryFilter<S extends Session> extends OncePerRequestFi
 			this.request = request;
 		}
 
+		/**
+		 * ???res???? ????session ??? Set-Cookie ?
+		 */
 		@Override
 		protected void onResponseCommitted() {
 			this.request.commitSession();
@@ -211,20 +226,25 @@ public class SessionRepositoryFilter<S extends Session> extends OncePerRequestFi
 		/**
 		 * Uses the {@link HttpSessionIdResolver} to write the session id to the response
 		 * and persist the Session.
+		 * ???session
 		 */
 		private void commitSession() {
 			HttpSessionWrapper wrappedSession = getCurrentSession();
 			if (wrappedSession == null) {
+				// ??session ?????????
 				if (isInvalidateClientSession()) {
+					// ? cookie??? Session
 					SessionRepositoryFilter.this.httpSessionIdResolver.expireSession(this, this.response);
 				}
 			}
 			else {
 				S session = wrappedSession.getSession();
+				// ?????????????? ?????? Filter
 				clearRequestedSessionCache();
 				SessionRepositoryFilter.this.sessionRepository.save(session);
 				String sessionId = session.getId();
 				if (!isRequestedSessionIdValid() || !sessionId.equals(getRequestedSessionId())) {
+					// ?sessionId ??? cookie ?
 					SessionRepositoryFilter.this.httpSessionIdResolver.setSessionId(this, this.response, sessionId);
 				}
 			}
@@ -280,17 +300,27 @@ public class SessionRepositoryFilter<S extends Session> extends OncePerRequestFi
 			return getCurrentSession() == null && this.requestedSessionInvalidated;
 		}
 
+		/**
+		 * ???????session
+		 * @param create  ???true
+		 * @return
+		 */
 		@Override
 		public HttpSessionWrapper getSession(boolean create) {
+			// ????session ?????  req.attribute ? ????????????
 			HttpSessionWrapper currentSession = getCurrentSession();
 			if (currentSession != null) {
 				return currentSession;
 			}
+			// ???????? spring.Session ??
 			S requestedSession = getRequestedSession();
+			// ?????????
 			if (requestedSession != null) {
+				// ????????? SessionRepositoryFilter ????????? ??????session ??????????? ????????
 				if (getAttribute(INVALID_SESSION_ID_ATTR) == null) {
 					requestedSession.setLastAccessedTime(Instant.now());
 					this.requestedSessionIdValid = true;
+					// ???? servlet.HttpSession ???
 					currentSession = new HttpSessionWrapper(requestedSession, getServletContext());
 					currentSession.markNotNew();
 					setCurrentSession(currentSession);
@@ -298,6 +328,7 @@ public class SessionRepositoryFilter<S extends Session> extends OncePerRequestFi
 				}
 			}
 			else {
+				// ???????? ??cookie ????session ??
 				// This is an invalid session id. No need to ask again if
 				// request.getSession is invoked for the duration of this request
 				if (SESSION_LOGGER.isDebugEnabled()) {
@@ -315,6 +346,7 @@ public class SessionRepositoryFilter<S extends Session> extends OncePerRequestFi
 								+ SESSION_LOGGER_NAME,
 						new RuntimeException("For debugging purposes only (not an error)"));
 			}
+			// ??????session??  ?????sessionId ? UUID
 			S session = SessionRepositoryFilter.this.sessionRepository.createSession();
 			session.setLastAccessedTime(Instant.now());
 			currentSession = new HttpSessionWrapper(session, getServletContext());
@@ -341,15 +373,23 @@ public class SessionRepositoryFilter<S extends Session> extends OncePerRequestFi
 			return new SessionCommittingRequestDispatcher(requestDispatcher);
 		}
 
+		/**
+		 * ?????????session
+		 * @return
+		 */
 		private S getRequestedSession() {
+			// ???????????
 			if (!this.requestedSessionCached) {
+				// ?cookie ?????????sessionId  ?????Base64 ????
 				List<String> sessionIds = SessionRepositoryFilter.this.httpSessionIdResolver.resolveSessionIds(this);
 				for (String sessionId : sessionIds) {
 					if (this.requestedSessionId == null) {
 						this.requestedSessionId = sessionId;
 					}
+					// ???????sessionId ????????  (?????redis???? ????)
 					S session = SessionRepositoryFilter.this.sessionRepository.findById(sessionId);
 					if (session != null) {
+						// ??????
 						this.requestedSession = session;
 						this.requestedSessionId = sessionId;
 						break;
@@ -378,6 +418,9 @@ public class SessionRepositoryFilter<S extends Session> extends OncePerRequestFi
 				super(session, servletContext);
 			}
 
+			/**
+			 * ????session ??
+			 */
 			@Override
 			public void invalidate() {
 				super.invalidate();

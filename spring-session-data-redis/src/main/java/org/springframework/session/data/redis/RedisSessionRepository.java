@@ -121,18 +121,28 @@ public class RedisSessionRepository implements SessionRepository<RedisSessionRep
 		session.save();
 	}
 
+	/**
+	 * ???redis ???session ??
+	 * @param sessionId
+	 * @return
+	 */
 	@Override
 	public RedisSession findById(String sessionId) {
 		String key = getSessionKey(sessionId);
+		// ?????? ????null
 		Map<String, Object> entries = this.sessionRedisOperations.<String, Object>opsForHash().entries(key);
 		if (entries.isEmpty()) {
 			return null;
 		}
+		// ??????? ???session ??
 		MapSession session = new RedisSessionMapper(sessionId).apply(entries);
+		// ????session   ????????????? ?????redis ????
 		if (session.isExpired()) {
+			// ??????????????? ?? ?????????
 			deleteById(sessionId);
 			return null;
 		}
+		// ??? ????????
 		return new RedisSession(session, false);
 	}
 
@@ -257,6 +267,9 @@ public class RedisSessionRepository implements SessionRepository<RedisSessionRep
 			return this.cached.isExpired();
 		}
 
+		/**
+		 * ?????????????
+		 */
 		private void flushIfRequired() {
 			if (RedisSessionRepository.this.flushMode == FlushMode.IMMEDIATE) {
 				save();

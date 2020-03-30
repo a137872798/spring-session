@@ -58,11 +58,20 @@ final class RedisSessionMapper implements Function<Map<String, Object>, MapSessi
 
 	private final String sessionId;
 
+	/**
+	 * ?????session ?id
+	 * @param sessionId
+	 */
 	RedisSessionMapper(String sessionId) {
 		Assert.hasText(sessionId, "sessionId must not be empty");
 		this.sessionId = sessionId;
 	}
 
+	/**
+	 * ?redis ??????? session   ?????session ?? spring??? ???servlet ???
+	 * @param map
+	 * @return
+	 */
 	@Override
 	public MapSession apply(Map<String, Object> map) {
 		Assert.notEmpty(map, "map must not be empty");
